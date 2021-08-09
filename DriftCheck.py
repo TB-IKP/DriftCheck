@@ -110,7 +110,7 @@ def load_spectra(in_det,in_args):
 			Maybe run DriftCheck with option --full.'% (in_args.dest))
 
 	#Initialize matrix
-	max_run 	= np.max([int(re.search('[0-9]{3}(?=_det[0-9]+.txt)',run).group(0)) 
+	max_run 	= np.max([int(re.search('[0-9]{3}(?=_det[0-9]+.txt$)',run).group(0)) 
 					for run in runs_txt])
 	matrix 		= np.zeros((max_run,int(np.diff(in_args.range))))
 
@@ -207,7 +207,7 @@ if args.full:
 
 	#Identify files
 	runs_cmat	= [file for file in os.listdir(args.head)
-					if re.search(args.tail+'[0-9]{3}.cmat',file)]
+					if re.search(args.tail+'[0-9]{3}.cmat$',file)]
 
 	if runs_cmat == []:
 		sys.exit('ERROR: Found no files matching pattern %s in path %s/.'% (args.tail,args.head))
@@ -240,7 +240,7 @@ if args.clear:
 
 	#Delete .txt-files without exceeding the bash input limit
 	files_txt 	= [file for file in os.listdir(args.dest)
-				if re.search(args.tail+'[0-9]{3}_det[0-9]{2}.txt',file)]
+				if re.search(args.tail+'[0-9]{3}_det[0-9]{2}.txt$',file)]
 
 	subprocess.call(['cd %s && rm %s'% (args.dest,' '.join(files_txt))],
 			shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
