@@ -43,9 +43,15 @@ The code expects individual ascii (`.txt`) files for each run and each detector.
 If these are not available, 2d matrices with the detector numbers on the first axis 
 and the spectrum of interest on the second can be provided using the option `--full`.
 These matrices should be available for each run and have names `NAMEXXX.cmat`
-where `XXX` denotes the run number.
+where `XXX` denotes a three-digit run number.
 In order to locate them, the name pattern `/path/to/NAME` 
 has to be handed over to `DriftCheck`.
+
+The code will then split these matrices and convert them to ascii 
+using the programs `cmat` and `mkascii16k` from the GASPware package, respectively.
+They are stored under the names `NAMEXXX_detYY.txt` 
+where `YY` is a two-digit detector number.
+Ultimately, plots are created for each individual detector.
 
 ## License
 

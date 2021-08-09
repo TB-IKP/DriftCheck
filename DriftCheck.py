@@ -36,7 +36,7 @@ from matplotlib.colors import LogNorm
 from tqdm.auto import tqdm
 
 #---------------------------------------------------------------------------------------#
-#               Commands cmat
+#		Commands cmat
 #---------------------------------------------------------------------------------------#
 
 def write_cmat_commands(in_run,in_args):
@@ -45,7 +45,7 @@ def write_cmat_commands(in_run,in_args):
 	(i.e. where drift_check.py is called).'''
 
 	out_string  = 'cmat -l << echo\n'
-	out_string += 'o %s\n'% (os.path.join(in_args.head,in_run))
+	out_string += 'o %s\n'% in_run
 
 	for det in range(in_args.num_dets):
 
@@ -65,69 +65,75 @@ def write_cmat_commands(in_run,in_args):
 	return
 
 #---------------------------------------------------------------------------------------#
-#               Split and convert matrices
+#		Split and convert matrices
 #---------------------------------------------------------------------------------------#
 
 def split_matrices(in_args):
 	'''Identify all needed runs in the current working directory.
-	Convert them to .txt and move them to the destination directory.'''
+	Since cmat does not accept arbitrarily long path names for matrices,
+	all cmat operations are performed in the data directory.
+	Split and convert runs to .txt and move them to the destination directory.'''
 
-	subprocess.call(['chmod +x %s'% os.path.join(in_args.head,'split_run.sh')],
-			shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-	subprocess.call(['./%s'% os.path.join(in_args.head,'split_run.sh')],
+	subprocess.call(['cd %s && chmod +x split_run.sh && ./split_run.sh'% in_args.head],
 			shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
-	runs_split      = [file for file in os.listdir(os.getcwd())
+	runs_split	= [file for file in os.listdir(in_args.head)
 				if re.search(in_args.tail+'[0-9]{3}_det[0-9]{2}$',file)]
 
 	if runs_split == []:
-		sys.exit('ERROR: Found no runs to split in path %s/.'% (os.getcwd()))
+		sys.exit('ERROR: Found no runs to split in path %s/.'% (in_args.head))
 
 	for run in runs_split:
 
-		subprocess.call(['~/Applications/mkascii16k %s %s'% (run,os.path.join(in_args.dest,run+'.txt'))],
+		subprocess.call(['mkascii16k %s %s'% (os.path.join(in_args.head,run),
+				os.path.join(in_args.dest,run+'.txt'))],
 				shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-		subprocess.call(['rm %s'% run],
+		subprocess.call(['rm %s'% os.path.join(in_args.head,run)],
 				shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 	return
 
 #---------------------------------------------------------------------------------------#
-#               Load spectra (.txt files)
+#		Load spectra (.txt files)
 #---------------------------------------------------------------------------------------#
 
 def load_spectra(in_det,in_args):
 	'''Load all run spectra for a given detector and store them in a matrix.
 	Only take into account the requested range of the spectrum.'''
 
-	runs_det        = [os.path.join(in_args.dest,file) for file in os.listdir(in_args.dest)
+	#Identify files
+	runs_txt 	= [os.path.join(in_args.dest,file) for file in os.listdir(in_args.dest)
 				if re.search(in_args.tail+'[0-9]{3}_det%02i.txt$'% (in_det+1),file)]
 
-	if runs_det == []:
+	if runs_txt == []:
 		sys.exit('ERROR: Found no ascii spectra in path %s.\
-			Maybe run drift_check with option --full.'% (in_args.dest))
+			Maybe run DriftCheck with option --full.'% (in_args.dest))
 
-	matrix          = np.zeros((max_run,int(np.diff(in_args.range))))
+	#Initialize matrix
+	max_run 	= np.max([int(re.search('[0-9]{3}(?=_det[0-9]+.txt)',run).group(0)) 
+					for run in runs_txt])
+	matrix 		= np.zeros((max_run,int(np.diff(in_args.range))))
 
-	for run in runs_det:
+	for run in runs_txt:
 
-		run_number              = int(run.split('_')[-2])
-		matrix[run_number-1]    = np.loadtxt(run,usecols=(1))[in_args.range[0]:in_args.range[1]]
+		run_number 		= int(run.split('_')[-2])
+		matrix[run_number-1]	= np.loadtxt(run,usecols=(1))[in_args.range[0]:in_args.range[1]]
 
+	#Save matrix entries
 	if args.write:
 		np.savetxt(os.path.join(in_args.dest,in_args.tail+'det%02i.mat'% (in_det+1)),matrix.T)
 
-	return matrix.T
+	return max_run,matrix.T
 
 #---------------------------------------------------------------------------------------#
-#               Prepare plots
+#		Prepare plots
 #---------------------------------------------------------------------------------------#
 
 def prepare_plots(in_det,in_args):
 	'''Prepare a spectrum-over-run number matrix for a given detector.'''
 
 	#Load all runs
-	matrix  = load_spectra(in_det=in_det,in_args=in_args)
+	max_run,matrix 	= load_spectra(in_det=in_det,in_args=in_args)
 
 	#Modify colormap
 	cmap = copy.copy(cm.viridis)
@@ -165,51 +171,50 @@ def prepare_plots(in_det,in_args):
 	plt.close()
 
 #---------------------------------------------------------------------------------------#
-#               Main
+#		Main
 #---------------------------------------------------------------------------------------#
 
 #----- Parse arguments -----#
 
 argparser = ap.ArgumentParser(description='Create spectra over run number from GASPware matrices.')
 
-argparser.add_argument('pattern',       metavar='PATTERN',type=str,
+argparser.add_argument('pattern',	metavar='PATTERN',type=str,
 					help='path to and name pattern of matrices')
-argparser.add_argument('--full',        dest='full',action='store_true',
+argparser.add_argument('--full',	dest='full',action='store_true',
 					help='create .txt files from matrices')
-argparser.add_argument('--write',       dest='write',action='store_true',
+argparser.add_argument('--write',	dest='write',action='store_true',
 					help='store raw data of plots in .mat files')
-argparser.add_argument('--clear',       dest='clear',action='store_true',
+argparser.add_argument('--clear',	dest='clear',action='store_true',
 					help='delete created .txt files')
-argparser.add_argument('--dest',        dest='dest',metavar='DESTINATION',type=str,default=os.getcwd(),
+argparser.add_argument('--dest',	dest='dest',metavar='DESTINATION',type=str,default=os.getcwd(),
 					help='path where output is stored (default: current location)')
-argparser.add_argument('--dets',        dest='num_dets',metavar='NUM DETS',type=int,default=25,
+argparser.add_argument('--dets', 	dest='num_dets',metavar='NUM DETS',type=int,default=25,
 					help='number of detectors (default: 25)')
-argparser.add_argument('--range',       dest='range',metavar='RANGE',type=int,nargs=2,default=[0,8191],
+argparser.add_argument('--range',	dest='range',metavar='RANGE',type=int,nargs=2,default=[0,8191],
 					help='plot range for data axis (default: 0 8191)')
 
-args            = argparser.parse_args()
+args		= argparser.parse_args()
 
 #----- Separate file pattern and data path -----#
 
-args.head       = os.path.split(args.pattern)[0]
-args.tail       = os.path.split(args.pattern)[1]
+args.head 	= os.path.abspath(os.path.split(args.pattern)[0])
+args.tail 	= os.path.split(args.pattern)[1]
+args.dest	= os.path.abspath(args.dest)
 
-#----- Identify files and maximum run number -----#
-
-runs_cmat       = [file for file in os.listdir(args.head)
-			if re.search(args.tail+'[0-9]{3}.cmat',file)]
-
-if runs_cmat == []:
-	sys.exit('ERROR: Found no files matching pattern %s in path %s/.'% (args.tail,args.head))
-
-max_run         = np.max([int(run.split('.')[-2][-3:]) for run in runs_cmat])
-
-#----- Split matrices -----#
+#----- Create .txt files -----#
 
 if args.full:
 
+	#Identify files
+	runs_cmat	= [file for file in os.listdir(args.head)
+					if re.search(args.tail+'[0-9]{3}.cmat',file)]
+
+	if runs_cmat == []:
+		sys.exit('ERROR: Found no files matching pattern %s in path %s/.'% (args.tail,args.head))
+
 	print('Splitting matrices...')
 
+	#Split matrices
 	for run in tqdm(runs_cmat):
 
 		write_cmat_commands(in_run=run.split('.')[0],in_args=args)
@@ -229,10 +234,14 @@ if args.clear:
 
 	print('Cleaning up...')
 
-	files_txt       = [os.path.join(args.dest,file) for file in os.listdir(args.dest)
-				if re.search(args.tail+'[0-9]{3}_det[0-9]{2}.txt',file)]
-
-	subprocess.call(['rm %s'% (' '.join(files_txt))],
-			shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+	#Delete split_run.sh
 	subprocess.call(['rm %s'% (os.path.join(args.head,'split_run.sh'))],
 			shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+
+	#Delete .txt-files without exceeding the bash input limit
+	files_txt 	= [file for file in os.listdir(args.dest)
+				if re.search(args.tail+'[0-9]{3}_det[0-9]{2}.txt',file)]
+
+	subprocess.call(['cd %s && rm %s'% (args.dest,' '.join(files_txt))],
+			shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+	
