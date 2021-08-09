@@ -106,7 +106,7 @@ def load_spectra(in_det,in_args):
 				if re.search(in_args.tail+'[0-9]{3}_det%02i.txt$'% (in_det+1),file)]
 
 	if runs_txt == []:
-		sys.exit('ERROR: Found no ascii spectra in path %s.\
+		sys.exit('ERROR: Found no ascii spectra in path %s.\n\
 			Maybe run DriftCheck with option --full.'% (in_args.dest))
 
 	#Initialize matrix

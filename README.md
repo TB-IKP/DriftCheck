@@ -19,8 +19,7 @@ The `DriftCheck` code is used to create plots highlighting the time stability of
 
 ```bash
 ./DriftCheck.py -h
-usage: DriftCheck.py [-h] [--full] [--write] [--clear] 
-					 [--dest DESTINATION] [--dets NUM DETS]
+usage: DriftCheck.py [-h] [--full] [--write] [--clear] [--dest DESTINATION] [--dets NUM DETS]
                      [--range RANGE RANGE]
                      PATTERN
 
