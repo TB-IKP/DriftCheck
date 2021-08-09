@@ -1,6 +1,6 @@
 # DriftCheck
 
-![Exemplary visualization](media/det1.pdf)
+![Exemplary visualization](media/det1.png)
 
 [![License](https://img.shields.io/badge/License-GPL%20v3+-blue.svg)](LICENSE)
 
